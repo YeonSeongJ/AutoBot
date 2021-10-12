@@ -7,38 +7,74 @@ def GetLine(frame, HEIGHT, WIDTH):
     center_point = (int(WIDTH / 2), 10)
     check_contour = [0,0]
 
-    m_hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2LAB)
-    m_hsv = m_hsv[line_check_height - 350:line_check_height + 350,0:WIDTH ]
+    frame_center = (int(WIDTH / 2), line_check_height)
 
-    lower_color = (207, 127, 0)#(0, 138, 134)#(226, 175, 169)
+    m_cut = frame[line_check_height - 50:line_check_height + 50,0:WIDTH ]
+    m_hsv = cv2.cvtColor(m_cut, cv2.COLOR_BGR2LAB)
+
+    lower_color = (190, 127, 0)#(0, 138, 134)#(226, 175, 169)
     upper_color = (237, 144, 255)#(255, 165, 152)#(255, 255, 255)
 
     m_range = cv2.inRange(m_hsv, lower_color, upper_color)
-    contours, hierarchy = cv2.findContours(m_range, cv2.RETR_EXTERNAL, \
+    m_result = cv2.bitwise_and(m_cut, m_cut, mask=m_range)
+    contours, _ = cv2.findContours(m_range, cv2.RETR_EXTERNAL, \
                                                 cv2.CHAIN_APPROX_NONE)
-
+    check_contour = [0, 0]
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)
-        if y < 15:
-            cv2.rectangle(m_range, (x, y), (x + w, y + h), (255, 0, 0), 3)
-            if len(check_contour) == 2:
-                break
-            # print('x :', x, 'y :', y)
-            # print('center Width', WIDTH / 2)
+        if y == 0:
+            # print('cnt :', x, y)
+            cv2.rectangle(m_result, (x, y), (x + w, y + h), (255, 0, 0), 3)
+
             if (x > WIDTH / 2):
-                check_contour[1] = x
-            elif (x <= WIDTH / 2):
-                check_contour[0] = x + w
+                if check_contour[1] == 0:
+                    check_contour[1] = x
+                elif check_contour[1] > x:
+                    check_contour[1] = x
+                    
+            else:
+                if check_contour[0] == 0:
+                    check_contour[0] = x + w
+                elif check_contour[0] < x:
+                    check_contour[0] = x + w
 
-    print('check_contour :',check_contour)
-        # cv2.drawContours(m_range, [cnt], 0, (255, 0, 0), 3)
+
+            
+    
+    # print('check_contour :',check_contour)
+
+    for i in range(2):
+        cv2.circle(m_result, (check_contour[i], 50), 3, (255, 0, 255), 10)
+
     got_center = int((check_contour[1] - check_contour[0]) / 2 + check_contour[0])
-    cv2.circle(frame, center_point, 3, (255, 0, 0), 10)
-    cv2.circle(frame, (got_center, 0), 3, (255, 0, 0), 5)   
-    if center_point[0] > got_center and center_point[0] - got_center > 15:
-        print('go right')
-    elif center_point[0] < got_center and got_center - center_point[0] > 15:
-        print('go left')
+    cv2.circle(m_result, center_point, 3, (255, 0, 0), 10)
+    cv2.circle(m_result, (got_center, 0), 3, (0, 0, 255), 5)
 
-    cv2.imshow('img', m_range)
-    cv2.imshow('img2', frame)  
+    # full screen mode
+    cv2.circle(frame, frame_center, 3, (255, 0, 0), 10)
+
+    # 중심제어
+    if center_point[0] > got_center:
+        for i in range(15):
+            if center_point[0] - got_center < 30 * i:
+                if i < 2:
+                    cv2.putText(frame, 'on line', center_point, cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                    print('good line')
+                    break
+                cv2.putText(frame, 'go left - ' + str(i) + '%', center_point, cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                print('go left -', str(i) + '%')
+                break
+    elif center_point[0] < got_center:
+        for i in range(15):
+            if got_center - center_point[0] < 30 * i:
+                if i < 2:
+                    cv2.putText(frame, 'on line', center_point, cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                    print('good line')
+                    break
+                cv2.putText(frame, 'go right - ' + str(i) + '%', center_point, cv2.FONT_HERSHEY_PLAIN, 1, (0, 255, 0), 2, cv2.LINE_AA)
+                print('go right -',str(i) + '%')
+                break
+
+    cv2.imshow('img', m_result)
+    cv2.imshow('img2', m_cut)
+    cv2.imshow('full screen', frame)
